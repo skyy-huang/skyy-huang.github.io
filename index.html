@@ -6,111 +6,132 @@
   <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; background: #f0f2f5; padding: 20px; }
-    .dashboard { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; background: white; padding: 20px; border-radius: 15px; }
-    h1 { color: #1a1a1a; text-align: center; }
-    .instruction { background: #e7f3ff; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9em; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #f4f7f9; padding: 20px; color: #333; }
+    .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); }
+    h1 { text-align: center; color: #1a202c; margin-bottom: 10px; }
+    .instruction { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 15px; margin-bottom: 25px; font-size: 0.95em; line-height: 1.6; }
+    #vis { width: 100%; }
   </style>
 </head>
 <body>
 
-  <h1>探索任务：全球财富的代际流动与行业偏好</h1>
-  
-  <div class="instruction">
-    <b>高级交互指南：</b><br>
-    1. 在<b>左图</b>中拖拽鼠标框选国家（例如：对比“美国”所在的高位区和“德国”所在的低位区）；<br>
-    2. 观察<b>右侧上方</b>图表：该区域的财富是来自科技创新（新钱）还是传统零售/制造业（旧钱）？<br>
-    3. 观察<b>右侧下方</b>列表：实时获取所选区域最顶尖的财富所有者信息。
-  </div>
-
-  <div class="dashboard">
-    <div id="vis-main"></div>
-    <div class="right-panel">
-      <div id="vis-industry"></div>
-      <div id="vis-list" style="margin-top: 20px;"></div>
+  <div class="container">
+    <h1>全球财富的代际流动与行业偏好</h1>
+    
+    <div class="instruction">
+      <strong>高级探索指南：</strong><br>
+      1. <strong>框选探索：</strong>在上方散点图中，用鼠标<strong>拖拽出一个矩形框</strong>来选择一组国家；<br>
+      2. <strong>联动观察：</strong>下方的行业分布图和富豪名单会<strong>实时更新</strong>，显示你框选区域的数据；<br>
+      3. <strong>细节提示：</strong>将鼠标悬停在点或柱条上，可查看具体的数值信息。
     </div>
+
+    <div id="vis"></div>
   </div>
 
   <script>
-    const dataSource = "https://raw.githubusercontent.com/FIT3179/Datasets/main/Billionaires_2024.csv";
-
-    const baseSpec = {
-      "data": {"url": dataSource},
-      "config": {"view": {"stroke": null}}
-    };
-
-    // 视图 A：国家维度的自力更生率
-    const mainView = {
-      ...baseSpec,
-      "title": "1. 框选国家：国家富豪数 vs 白手起家率",
-      "width": 400, "height": 500,
-      "params": [{
-        "name": "regionBrush",
-        "select": {"type": "interval"}
-      }],
+    const spec = {
+      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+      "data": {
+        "url": "https://raw.githubusercontent.com/FIT3179/Datasets/main/Billionaires_2024.csv"
+      },
+      // 数据预处理：将字符串 TRUE/FALSE 转为数字 1/0 以便计算比例
       "transform": [
+        {"calculate": "datum.selfMade == 'TRUE' ? 1 : 0", "as": "isSelfMade"}
+      ],
+      "vconcat": [
         {
-          "aggregate": [
-            {"op": "count", "as": "total_billionaires"},
-            {"op": "mean", "field": "selfMade", "as": "self_made_rate"}
-          ],
-          "groupby": ["country"]
-        }
-      ],
-      "mark": {"type": "circle", "size": 100, "opacity": 0.7, "cursor": "crosshair"},
-      "encoding": {
-        "x": {"field": "total_billionaires", "type": "quantitative", "title": "富豪总数", "scale": {"type": "log"}},
-        "y": {"field": "self_made_rate", "type": "quantitative", "title": "白手起家比例 (0-1)", "axis": {"format": "%"}},
-        "color": {
-          "condition": {"param": "regionBrush", "value": "#007bff"},
-          "value": "#ddd"
+          "title": "1. 国家概览：富豪总数 vs 白手起家率 (框选下方散点进行筛选)",
+          "width": 900,
+          "height": 350,
+          "layer": [
+            {
+              "params": [{
+                "name": "regionBrush",
+                "select": {"type": "interval"}
+              }],
+              "transform": [
+                {
+                  "aggregate": [
+                    {"op": "count", "as": "total_billionaires"},
+                    {"op": "mean", "field": "isSelfMade", "as": "self_made_rate"}
+                  ],
+                  "groupby": ["country"]
+                }
+              ],
+              "mark": {"type": "circle", "size": 120, "opacity": 0.7, "cursor": "crosshair"},
+              "encoding": {
+                "x": {
+                  "field": "total_billionaires", 
+                  "type": "quantitative", 
+                  "title": "富豪总数 (对数刻度)", 
+                  "scale": {"type": "log", "domain": [1, 1000]}
+                },
+                "y": {
+                  "field": "self_made_rate", 
+                  "type": "quantitative", 
+                  "title": "白手起家比例", 
+                  "axis": {"format": ".0%"},
+                  "scale": {"domain": [0, 1]}
+                },
+                "color": {
+                  "condition": {"param": "regionBrush", "value": "#3182ce"},
+                  "value": "#cbd5e0"
+                },
+                "tooltip": [
+                  {"field": "country", "title": "国家"},
+                  {"field": "total_billionaires", "title": "富豪人数"},
+                  {"field": "self_made_rate", "title": "白手起家比例", "format": ".1%"}
+                ]
+              }
+            }
+          ]
         },
-        "tooltip": [{"field": "country", "title": "国家"}, {"field": "total_billionaires", "title": "人数"}]
-      }
-    };
-
-    // 视图 B：联动后的行业财富来源分析
-    const industryView = {
-      ...baseSpec,
-      "title": "2. 所选区域的行业财富构成",
-      "width": 450, "height": 250,
-      "transform": [
-        {"filter": {"param": "regionBrush", "empty": true}}
-      ],
-      "mark": "bar",
-      "encoding": {
-        "y": {"field": "category", "type": "nominal", "title": "行业", "sort": "-x"},
-        "x": {"aggregate": "count", "type": "quantitative", "title": "人数"},
-        "color": {
-          "field": "selfMade", 
-          "type": "nominal", 
-          "title": "财富来源",
-          "scale": {"range": ["#ff7f0e", "#1f77b4"]},
-          "legend": {"orient": "bottom"}
+        {
+          "hconcat": [
+            {
+              "title": "2. 所选区域的行业财富构成",
+              "width": 450,
+              "height": 300,
+              "transform": [
+                {"filter": {"param": "regionBrush"}}
+              ],
+              "mark": {"type": "bar", "tooltip": true},
+              "encoding": {
+                "y": {"field": "category", "type": "nominal", "title": "行业类别", "sort": "-x"},
+                "x": {"aggregate": "count", "type": "quantitative", "title": "人数"},
+                "color": {
+                  "field": "selfMade", 
+                  "type": "nominal", 
+                  "title": "是否白手起家",
+                  "scale": {"range": ["#ed8936", "#4299e1"]}
+                }
+              }
+            },
+            {
+              "title": "3. 区域顶尖富豪 Top 10",
+              "width": 300,
+              "height": 300,
+              "transform": [
+                {"filter": {"param": "regionBrush"}},
+                {"window": [{"op": "rank", "as": "rank"}], "sort": [{"field": "finalWorth", "order": "desc"}]},
+                {"filter": "datum.rank <= 10"}
+              ],
+              "mark": {"type": "text", "align": "left", "baseline": "middle", "dx": -140},
+              "encoding": {
+                "y": {"field": "rank", "type": "ordinal", "axis": null},
+                "text": {"calculate": "datum.rank + '. ' + datum.personName + ' ($' + datum.finalWorth + 'B)'"}
+              }
+            }
+          ]
         }
-      }
-    };
-
-    // 视图 C：细节按需显示 (Top 5 详情列表)
-    const listView = {
-      ...baseSpec,
-      "title": "3. 区域财富领袖详情",
-      "width": 450, "height": 150,
-      "transform": [
-        {"filter": {"param": "regionBrush", "empty": true}},
-        {"window": [{"op": "rank", "as": "rank"}], "sort": [{"field": "finalWorth", "order": "desc"}]},
-        {"filter": "datum.rank <= 5"}
       ],
-      "mark": {"type": "text", "align": "left", "baseline": "middle", "fontSize": 12},
-      "encoding": {
-        "y": {"field": "rank", "type": "ordinal", "axis": null},
-        "text": {"calculate": "datum.personName + ' ($' + datum.finalWorth + 'B) - ' + datum.source", "type": "nominal"}
+      "config": {
+        "axis": {"grid": true, "gridOpacity": 0.4},
+        "view": {"stroke": "transparent"}
       }
     };
 
-    vegaEmbed('#vis-main', mainView);
-    vegaEmbed('#vis-industry', industryView);
-    vegaEmbed('#vis-list', listView);
+    vegaEmbed('#vis', spec, {"actions": false}).catch(console.error);
   </script>
 </body>
 </html>
