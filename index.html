@@ -1,151 +1,237 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-  <title>全球财富DNA探索器</title>
-  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-  <style>
-    body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }
-    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); }
-    h1 { text-align: center; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
-    .instruction { background: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; margin-bottom: 25px; font-size: 0.9em; line-height: 1.6; }
-    #vis { width: 100%; min-height: 700px; }
-    .footer { margin-top: 20px; font-size: 0.8em; color: #64748b; text-align: center; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movies Explorer - 电影产业的商业与口碑分析</title>
+    <!-- 引入 Vega & Vega-Lite -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f7f9fc;
+            color: #333;
+        }
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            text-align: center;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        #vis {
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>全球财富的代际流动与行业偏好</h1>
-    
-    <div class="instruction">
-      <strong>高级探索操作：</strong><br>
-      1. <strong>框选联动：</strong> 在上方散点图中，按住鼠标左键<strong>拖拽出一个矩形框</strong>；<br>
-      2. <strong>过滤分析：</strong> 下方的行业统计和名单会自动过滤，仅显示你选中区域的富豪；<br>
-      3. <strong>探索结论：</strong> 试着对比“美国”所在的高位区域和“德国”所在的区域，看看行业构成的巨大差异。
+    <div class="header">
+        <h1>Movies Explorer：口碑与商业的权衡</h1>
+        <p>探索电影的烂番茄评分（口碑）、全球总票房（商业）、制作预算以及电影类型之间的关系。尝试<strong>框选 (Brush)</strong> 散点图中的区域，或者<strong>点击 (Click)</strong> 右侧柱状图的电影类型进行联动分析！</p>
     </div>
 
-    <div id="vis"></div>
-    <div class="footer">数据来源: Forbes Billionaires 2023 (Verified) | 框架: Vega-Lite</div>
-  </div>
+    <div class="container">
+        <!-- 容器用于挂载 Vega-Lite 视图 -->
+        <div id="vis"></div>
+    </div>
 
-  <script>
-    // 使用 jsDelivr 镜像确保国内访问 100% 成功
-    const dataSource = "https://cdn.jsdelivr.net/gh/FIT3179/Datasets@main/Billionaires_2023.csv";
-
-    const spec = {
-      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-      "data": { "url": dataSource },
-      "transform": [
-        // 数据清洗：将字符串转换为数值以计算比例
-        {"calculate": "datum.selfMade == 'TRUE' ? 1 : 0", "as": "isSelfMade"}
-      ],
-      "vconcat": [
-        {
-          "title": {"text": "1. 框选感兴趣的国家（国家富豪总数 vs 白手起家率）", "fontSize": 14, "anchor": "start"},
-          "width": 850,
-          "height": 300,
-          "params": [{
-            "name": "regionBrush",
-            "select": {"type": "interval"}
-          }],
-          "layer": [
-            {
-              "transform": [
-                {
-                  "aggregate": [
-                    {"op": "count", "as": "total_billionaires"},
-                    {"op": "mean", "field": "isSelfMade", "as": "self_made_rate"}
-                  ],
-                  "groupby": ["country"]
-                }
-              ],
-              "mark": {"type": "circle", "size": 150, "opacity": 0.8, "stroke": "white", "strokeWidth": 1},
-              "encoding": {
-                "x": {
-                  "field": "total_billionaires", 
-                  "type": "quantitative", 
-                  "title": "国家富豪总数 (对数轴)",
-                  "scale": {"type": "log", "domain": [1, 1000]}
-                },
-                "y": {
-                  "field": "self_made_rate", 
-                  "type": "quantitative", 
-                  "title": "白手起家比例",
-                  "axis": {"format": ".0%"},
-                  "scale": {"domain": [-0.05, 1.05]}
-                },
-                "color": {
-                  "condition": {"param": "regionBrush", "value": "#3b82f6"},
-                  "value": "#cbd5e1"
-                },
-                "tooltip": [
-                  {"field": "country", "title": "国家"},
-                  {"field": "total_billionaires", "title": "富豪总数"},
-                  {"field": "self_made_rate", "title": "自力更生率", "format": ".1%"}
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "hconcat": [
-            {
-              "title": {"text": "2. 选中区域的行业财富背景", "fontSize": 14, "anchor": "start"},
-              "width": 400,
-              "height": 300,
-              "transform": [
-                {"filter": {"param": "regionBrush"}}
-              ],
-              "mark": {"type": "bar", "tooltip": true},
-              "encoding": {
-                "y": {"field": "category", "type": "nominal", "title": null, "sort": "-x"},
-                "x": {"aggregate": "count", "type": "quantitative", "title": "人数"},
-                "color": {
-                  "field": "selfMade", 
-                  "type": "nominal", 
-                  "title": "白手起家?",
-                  "scale": {"range": ["#f97316", "#3b82f6"]}
-                }
-              }
+    <script>
+        const spec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "title": "电影产业交互式可视化分析",
+            "data": {
+                "url": "https://raw.githubusercontent.com/vega/vega-datasets/master/data/movies.json"
             },
-            {
-              "title": {"text": "3. 区域顶级领袖 (Top 10)", "fontSize": 14, "anchor": "start"},
-              "width": 300,
-              "height": 300,
-              "transform": [
-                {"filter": {"param": "regionBrush"}},
-                {"window": [{"op": "rank", "as": "rank"}], "sort": [{"field": "finalWorth", "order": "desc"}]},
-                {"filter": "datum.rank <= 10"}
-              ],
-              "mark": {"type": "text", "align": "left", "baseline": "middle", "fontSize": 12, "dx": -120},
-              "encoding": {
-                "y": {"field": "rank", "type": "ordinal", "axis": null},
-                "text": {"calculate": "datum.rank + '. ' + datum.personName + ' ($' + datum.finalWorth + 'B)'"}
-              }
+            "transform": [
+                {"filter": "datum['Rotten Tomatoes Rating'] != null"},
+                {"filter": "datum['Worldwide Gross'] > 0"},
+                {"filter": "datum['Production Budget'] > 0"},
+                {"filter": "datum['Major Genre'] != null"}
+            ],
+            "vconcat": [
+                {
+                    "hconcat": [
+                        {
+                            "title": "电影口碑与票房散点图 (可框选 / 缩放)",
+                            "width": 600,
+                            "height": 400,
+                            "mark": {"type": "circle", "opacity": 0.6, "stroke": "white", "strokeWidth": 0.5},
+                            "params": [
+                                {
+                                    "name": "brush",
+                                    "select": "interval"
+                                },
+                                {
+                                    "name": "grid",
+                                    "select": "interval",
+                                    "bind": "scales"
+                                }
+                            ],
+                            "encoding": {
+                                "x": {
+                                    "field": "Rotten Tomatoes Rating",
+                                    "type": "quantitative",
+                                    "title": "烂番茄评分 (0-100)",
+                                    "scale": {"domain": [0, 100]}
+                                },
+                                "y": {
+                                    "field": "Worldwide Gross",
+                                    "type": "quantitative",
+                                    "title": "全球总票房 (对数)",
+                                    "scale": {"type": "log"}
+                                },
+                                "size": {
+                                    "field": "Production Budget",
+                                    "type": "quantitative",
+                                    "title": "制作预算 ($)",
+                                    "scale": {"range": [10, 500]}
+                                },
+                                "color": {
+                                    "condition": {
+                                        "param": "click",
+                                        "field": "Major Genre",
+                                        "type": "nominal",
+                                        "title": "电影类型",
+                                        "scale": {"scheme": "category20"}
+                                    },
+                                    "value": "lightgray"
+                                },
+                                "opacity": {
+                                    "condition": {
+                                        "param": "brush",
+                                        "value": 0.8
+                                    },
+                                    "value": 0.1
+                                },
+                                "tooltip": [
+                                    {"field": "Title", "type": "nominal", "title": "电影名称"},
+                                    {"field": "Major Genre", "type": "nominal", "title": "类型"},
+                                    {"field": "Rotten Tomatoes Rating", "type": "quantitative", "title": "烂番茄评分"},
+                                    {"field": "Worldwide Gross", "type": "quantitative", "format": "$,.0f", "title": "全球总票房"},
+                                    {"field": "Production Budget", "type": "quantitative", "format": "$,.0f", "title": "制作预算"}
+                                ]
+                            }
+                        },
+                        {
+                            "title": "选中区域内的电影类型分布 (可点击交叉过滤)",
+                            "width": 250,
+                            "height": 400,
+                            "mark": "bar",
+                            "params": [
+                                {
+                                    "name": "click",
+                                    "select": {"type": "point", "encodings": ["color"]}
+                                }
+                            ],
+                            "encoding": {
+                                "y": {
+                                    "field": "Major Genre",
+                                    "type": "nominal",
+                                    "sort": "-x",
+                                    "title": null
+                                },
+                                "x": {
+                                    "aggregate": "count",
+                                    "title": "数量"
+                                },
+                                "color": {
+                                    "condition": {
+                                        "param": "click",
+                                        "field": "Major Genre",
+                                        "type": "nominal",
+                                        "legend": null
+                                    },
+                                    "value": "lightgray"
+                                },
+                                "tooltip": [
+                                    {"field": "Major Genre", "type": "nominal", "title": "类型"},
+                                    {"aggregate": "count", "type": "quantitative", "title": "数量"}
+                                ]
+                            },
+                            "transform": [
+                                {"filter": {"param": "brush"}}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "title": "选中范围内的 Top 10 高票房电影",
+                    "width": 880,
+                    "height": 200,
+                    "transform": [
+                        {"filter": {"param": "brush"}},
+                        {"filter": {"param": "click"}},
+                        {
+                            "window": [{"op": "rank", "as": "rank"}],
+                            "sort": [{"field": "Worldwide Gross", "order": "descending"}]
+                        },
+                        {"filter": "datum.rank <= 10"}
+                    ],
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {
+                            "field": "Worldwide Gross",
+                            "type": "quantitative",
+                            "title": "全球总票房",
+                            "axis": {"format": "$,.0f"}
+                        },
+                        "y": {
+                            "field": "Title",
+                            "type": "nominal",
+                            "sort": {"field": "Worldwide Gross", "order": "descending"},
+                            "title": null
+                        },
+                        "color": {
+                            "field": "Major Genre",
+                            "type": "nominal",
+                            "legend": null
+                        },
+                        "tooltip": [
+                            {"field": "Title", "type": "nominal", "title": "电影名称"},
+                            {"field": "Worldwide Gross", "type": "quantitative", "format": "$,.0f", "title": "全球总票房"},
+                            {"field": "Rotten Tomatoes Rating", "type": "quantitative", "title": "烂番茄评分"}
+                        ]
+                    }
+                }
+            ],
+            "resolve": {
+                "scale": {"color": "independent"}
+            },
+            "config": {
+                "view": {"stroke": "transparent"},
+                "axis": {"domainColor": "#ccc", "tickColor": "#ccc"}
             }
-          ]
-        }
-      ],
-      "config": {
-        "axis": {"grid": true, "gridColor": "#f1f5f9"},
-        "view": {"stroke": "transparent"}
-      }
-    };
+        };
 
-    // 渲染图表并添加错误提示
-    vegaEmbed('#vis', spec, {"actions": false}).then(result => {
-      console.log("可视化加载成功");
-    }).catch(err => {
-      console.error(err);
-      document.getElementById('vis').innerHTML = 
-        `<div style="color:red; padding:50px; text-align:center; border:1px solid red; border-radius:8px;">
-           <h3>数据加载失败</h3>
-           <p>可能是由于您的网络环境无法访问外部 CSV。请尝试刷新页面或切换网络环境。</p>
-           <p><small>${err.message}</small></p>
-         </div>`;
-    });
-  </script>
+        // 嵌入 Vega-Lite 图表
+        vegaEmbed('#vis', spec, {actions: false}).then(result => {
+            console.log("Visualization successfully loaded.");
+        }).catch(console.error);
+    </script>
 </body>
 </html>
