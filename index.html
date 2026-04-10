@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>全球财富DNA探索器</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f0f2f5; padding: 20px; }
+    .dashboard { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; background: white; padding: 20px; border-radius: 15px; }
+    h1 { color: #1a1a1a; text-align: center; }
+    .instruction { background: #e7f3ff; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+
+  <h1>探索任务：全球财富的代际流动与行业偏好</h1>
+  
+  <div class="instruction">
+    <b>高级交互指南：</b><br>
+    1. 在<b>左图</b>中拖拽鼠标框选国家（例如：对比“美国”所在的高位区和“德国”所在的低位区）；<br>
+    2. 观察<b>右侧上方</b>图表：该区域的财富是来自科技创新（新钱）还是传统零售/制造业（旧钱）？<br>
+    3. 观察<b>右侧下方</b>列表：实时获取所选区域最顶尖的财富所有者信息。
+  </div>
+
+  <div class="dashboard">
+    <div id="vis-main"></div>
+    <div class="right-panel">
+      <div id="vis-industry"></div>
+      <div id="vis-list" style="margin-top: 20px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const dataSource = "https://raw.githubusercontent.com/FIT3179/Datasets/main/Billionaires_2024.csv";
+
+    const baseSpec = {
+      "data": {"url": dataSource},
+      "config": {"view": {"stroke": null}}
+    };
+
+    // 视图 A：国家维度的自力更生率
+    const mainView = {
+      ...baseSpec,
+      "title": "1. 框选国家：国家富豪数 vs 白手起家率",
+      "width": 400, "height": 500,
+      "params": [{
+        "name": "regionBrush",
+        "select": {"type": "interval"}
+      }],
+      "transform": [
+        {
+          "aggregate": [
+            {"op": "count", "as": "total_billionaires"},
+            {"op": "mean", "field": "selfMade", "as": "self_made_rate"}
+          ],
+          "groupby": ["country"]
+        }
+      ],
+      "mark": {"type": "circle", "size": 100, "opacity": 0.7, "cursor": "crosshair"},
+      "encoding": {
+        "x": {"field": "total_billionaires", "type": "quantitative", "title": "富豪总数", "scale": {"type": "log"}},
+        "y": {"field": "self_made_rate", "type": "quantitative", "title": "白手起家比例 (0-1)", "axis": {"format": "%"}},
+        "color": {
+          "condition": {"param": "regionBrush", "value": "#007bff"},
+          "value": "#ddd"
+        },
+        "tooltip": [{"field": "country", "title": "国家"}, {"field": "total_billionaires", "title": "人数"}]
+      }
+    };
+
+    // 视图 B：联动后的行业财富来源分析
+    const industryView = {
+      ...baseSpec,
+      "title": "2. 所选区域的行业财富构成",
+      "width": 450, "height": 250,
+      "transform": [
+        {"filter": {"param": "regionBrush", "empty": true}}
+      ],
+      "mark": "bar",
+      "encoding": {
+        "y": {"field": "category", "type": "nominal", "title": "行业", "sort": "-x"},
+        "x": {"aggregate": "count", "type": "quantitative", "title": "人数"},
+        "color": {
+          "field": "selfMade", 
+          "type": "nominal", 
+          "title": "财富来源",
+          "scale": {"range": ["#ff7f0e", "#1f77b4"]},
+          "legend": {"orient": "bottom"}
+        }
+      }
+    };
+
+    // 视图 C：细节按需显示 (Top 5 详情列表)
+    const listView = {
+      ...baseSpec,
+      "title": "3. 区域财富领袖详情",
+      "width": 450, "height": 150,
+      "transform": [
+        {"filter": {"param": "regionBrush", "empty": true}},
+        {"window": [{"op": "rank", "as": "rank"}], "sort": [{"field": "finalWorth", "order": "desc"}]},
+        {"filter": "datum.rank <= 5"}
+      ],
+      "mark": {"type": "text", "align": "left", "baseline": "middle", "fontSize": 12},
+      "encoding": {
+        "y": {"field": "rank", "type": "ordinal", "axis": null},
+        "text": {"calculate": "datum.personName + ' ($' + datum.finalWorth + 'B) - ' + datum.source", "type": "nominal"}
+      }
+    };
+
+    vegaEmbed('#vis-main', mainView);
+    vegaEmbed('#vis-industry', industryView);
+    vegaEmbed('#vis-list', listView);
+  </script>
+</body>
+</html>
